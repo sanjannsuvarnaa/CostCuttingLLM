@@ -1,0 +1,16 @@
+services:
+  tokenwise-mcp:
+    build: .
+    image: tokenwise-mcp:latest
+    container_name: tokenwise-mcp
+    restart: unless-stopped
+    stdin_open: true
+    tty: false
+    volumes:
+      # Persist the cache file across container restarts
+      - tokenwise_cache:/root
+    environment:
+      NODE_ENV: production
+
+volumes:
+  tokenwise_cache:

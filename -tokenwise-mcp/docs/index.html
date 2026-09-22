@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>tokenwise-mcp — Cut LLM token costs</title>
+  <meta name="description" content="MCP server + library for compressing prompts, summarizing context, chunking documents, and planning Anthropic prompt-cache breakpoints to cut LLM token costs by 50-90%." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="progress-bar"></div>
+  <header class="site-nav">
+    <div class="nav-inner">
+      <a class="brand" href="#"><span class="dot">●</span> tokenwise-mcp</a>
+      <nav class="links">
+        <a href="#install">Install</a>
+        <a href="#tools">Tools</a>
+        <a href="#proactive-mode">Proactive Mode</a>
+        <a href="#dashboard">Dashboard</a>
+        <a href="#licensing">Licensing</a>
+        <a href="https://github.com/RohanCarlo/-tokenwise-mcp">GitHub</a>
+        <a href="https://www.npmjs.com/package/tokenwise-mcp">npm</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <h1>Cut your LLM token costs</h1>
+    <p class="tagline">
+      tokenwise-mcp is an MCP server and library that compresses prompts, summarizes
+      conversation history, retrieves only the document chunks you need, and plans
+      Anthropic prompt-cache breakpoints — so every turn of your agent loop costs less.
+    </p>
+    <div class="cta-row">
+      <a class="btn primary" href="#install">Get started</a>
+      <a class="btn secondary" href="#tools">View tools</a>
+      <a class="btn secondary" href="https://github.com/RohanCarlo/-tokenwise-mcp">Star on GitHub</a>
+    </div>
+    <div class="stat-row">
+      <div class="stat"><div class="num" data-target="61.9" data-suffix="%">0.0%</div><div class="label">cost reduction, 10-turn agent loop</div></div>
+      <div class="stat"><div class="num" data-target="93.1" data-suffix="%">0.0%</div><div class="label">token reduction, RAG chunking</div></div>
+      <div class="stat"><div class="num" data-target="28.9" data-suffix="%">0.0%</div><div class="label">reduction, conversation summary</div></div>
+    </div>
+  </section>
+
+  <main>
+    <section id="install">
+      <h2>Installation</h2>
+      <p class="lead">Requires Node.js 18+. Use it as an MCP server in Claude Code / Claude Desktop, or import it directly as a library.</p>
+
+      <h3>Add to Claude Code</h3>
+      <div class="code-block"><pre><code>npm install -g tokenwise-mcp
+claude mcp add tokenwise tokenwise-mcp</code></pre></div>
+
+      <p>Or run it on demand with <code>npx</code> — no global install:</p>
+      <div class="code-block"><pre><code>claude mcp add tokenwise -- npx -y tokenwise-mcp</code></pre></div>
+
+      <p>Or add it manually to <code>~/.claude/claude_desktop_config.json</code>:</p>
+      <div class="code-block"><pre><code>{
+  "mcpServers": {
+    "tokenwise": {
+      "command": "tokenwise-mcp"
+    }
+  }
+}</code></pre></div>
+
+      <h3>Use as a library</h3>
+      <div class="code-block"><pre><code>npm install tokenwise-mcp</code></pre></div>
+      <div class="code-block"><pre><code>import {
+  compressPrompt,
+  summarizeContext,
+  chunkDocument,
+  estimateTokens,
+  planPromptCaching,
+  planCacheBreakpoints,
+  countTokens,
+} from "tokenwise-mcp";
+
+// Compress a verbose prompt
+const { compressed, tokensSaved } = compressPrompt(myPrompt, "high");
+
+// Retrieve only the chunks relevant to a query
+const { chunks } = chunkDocument(bigDoc, "authentication flow", 3, 500);
+
+// Plan prompt-cache breakpoints for an agent loop request
+const plan = planCacheBreakpoints({
+  system: systemPrompt,
+  tools: toolDefinitions,
+  messages: conversation,
+  model: "claude-3-5-sonnet",
+});
+console.log(plan.estimatedSavingsPercent, plan.pricingExact, plan.notes);
+
+// Apply the returned system/tools/messages directly in your
+// Anthropic SDK request - they're already annotated with cache_control.</code></pre></div>
+    </section>
+
+    <section id="benchmarks">
+      <h2>Benchmarks</h2>
+      <p class="lead">Real output from <code>node benchmarks/*.mjs</code> in the repo.</p>
+      <table>
+        <thead>
+          <tr><th>Scenario</th><th>Script</th><th>Result</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>10-turn agent loop (system prompt + 16 tool defs + growing history), claude-3-5-sonnet</td>
+            <td><code>agent-loop.mjs</code></td>
+            <td><strong>61.9% cost reduction</strong> ($0.0994 → $0.0379 over 10 turns)</td>
+          </tr>
+          <tr>
+            <td>RAG retrieval over a 9,000-token multi-topic doc, top-3 chunks for a query</td>
+            <td><code>rag-chunking.mjs</code></td>
+            <td><strong>93.1% token reduction</strong> (9001 → 617 tokens)</td>
+          </tr>
+          <tr>
+            <td>9-message conversation condensed to a 3-message summary</td>
+            <td><code>conversation-summary.mjs</code></td>
+            <td><strong>28.9% token reduction</strong> (481 → 342 tokens)</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="code-block"><pre><code>npm run build
+node benchmarks/agent-loop.mjs
+node benchmarks/rag-chunking.mjs
+node benchmarks/conversation-summary.mjs</code></pre></div>
+    </section>
+
+    <section id="tools">
+      <h2>Tools</h2>
+      <p class="lead">10 MCP tools, all available from chat once the server is registered.</p>
+
+      <table>
+        <thead><tr><th>Name</th><th>What it does</th><th>Typical savings</th></tr></thead>
+        <tbody>
+          <tr><td><code>compress_prompt</code></td><td>Strips filler phrases, shortens verbose wording</td><td>10–30%</td></tr>
+          <tr><td><code>summarize_context</code></td><td>Compresses old messages, keeps recent 2 verbatim</td><td>20–40%</td></tr>
+          <tr><td><code>chunk_document</code></td><td>Returns only relevant chunks of a large doc</td><td>70–90%</td></tr>
+          <tr><td><code>estimate_tokens</code></td><td>Counts tokens + estimates cost for any model</td><td>—</td></tr>
+          <tr><td><code>optimize_system_prompt</code></td><td>Converts prose instructions to concise bullets</td><td>15–40%</td></tr>
+          <tr><td><code>cache_context</code></td><td>Stores reusable context so you don't re-send it</td><td>100% on repeats</td></tr>
+          <tr><td><code>plan_prompt_caching</code></td><td>Places Anthropic <code>cache_control</code> breakpoints on system/tools/messages</td><td>50–65% in agent loops</td></tr>
+          <tr><td><code>get_stats</code></td><td>Token-savings stats: session, today, last 7 days, all-time</td><td>—</td></tr>
+          <tr><td><code>activate_license</code></td><td>Activate a license key, or check trial/license status</td><td>—</td></tr>
+          <tr><td><code>set_proactive_mode</code></td><td>Saves your yes/no answer on automatic tool use (see <a href="#proactive-mode">Proactive Mode</a>)</td><td>—</td></tr>
+        </tbody>
+      </table>
+
+      <article class="tool-card" id="compress_prompt">
+        <h3><code>compress_prompt</code> <span class="badge">10–30% saved</span></h3>
+        <p class="desc">Compresses a prompt by removing filler phrases and verbose wording. Set <code>aggressiveness</code> to <code>low</code>, <code>medium</code>, or <code>high</code>.</p>
+        <details>
+          <summary>Example</summary>
+          <div class="code-block"><pre><code>{
+  "tool": "compress_prompt",
+  "arguments": {
+    "prompt": "Sure! I'd be happy to help. In order to solve this, due to the fact that we need to...",
+    "aggressiveness": "high"
+  }
+}</code></pre></div>
+          <div class="code-block"><pre><code>{
+  "original": "Sure! I'd be happy to help. In order to...",
+  "compressed": "to solve this, because we need to...",
+  "tokensSaved": 12,
+  "percentSaved": 28
+}</code></pre></div>
+        </details>
+      </article>
+
+      <article class="tool-card" id="summarize_context">
+        <h3><code>summarize_context</code> <span class="badge">20–40% saved</span></h3>
+        <p class="desc">Summarizes conversation history, keeping the most recent messages verbatim and compressing older ones down to a token budget.</p>
+        <details>
+          <summary>Example</summary>
+          <div class="code-block"><pre><code>{
+  "tool": "summarize_context",
+  "arguments": {
+    "messages": [
+      {"role": "user", "content": "...long earlier message..."},
+      {"role": "assistant", "content": "...long response..."},
+      {"role": "user", "content": "What about performance?"},
+      {"role": "assistant", "content": "Performance depends on..."}
+    ],
+    "maxTokens": 2000
+  }
+}</code></pre></div>
+        </details>
+      </article>
+
+      <article class="tool-card" id="chunk_document">
+        <h3><code>chunk_document</code> <span class="badge">70–90% saved</span></h3>
+        <p class="desc">Splits a large document and returns only the chunks most relevant to a query — instead of dumping the whole document into context.</p>
+        <details>
+          <summary>Example</summary>
+          <div class="code-block"><pre><code>{
+  "tool": "chunk_document",
+  "arguments": {
+    "document": "...10,000 word document...",
+    "query": "authentication flow",
+    "maxChunks": 3,
+    "chunkSize": 500
+  }
+}</code></pre></div>
+        </details>
+      </article>
+
+      <article class="tool-card" id="estimate_tokens">
+        <h3><code>estimate_tokens</code></h3>
+        <p class="desc">Counts tokens in text and estimates cost for a given model. Exact for OpenAI models (via <code>tiktoken</code>); approximate for Claude and other models where no public tokenizer exists.</p>
+        <details>
+          <summary>Example</summary>
+          <div class="code-block"><pre><code>{
+  "tool": "estimate_tokens",
+  "arguments": {
+    "text": "Your prompt here",
+    "model": "claude-3-5-sonnet"
+  }
+}</code></pre></div>
+          <div class="code-block"><pre><code>{
+  "tokenCount": 14,
+  "tokenCountExact": false,
+  "tokenizer": "cl100k_base (approximate)",
+  "estimatedCostUSD": 0.000042,
+  "model": "claude-3-5-sonnet",
+  "pricingExact": true
+}</code></pre></div>
+        </details>
+      </article>
+
+      <article class="tool-card" id="optimize_system_prompt">
+        <h3><code>optimize_system_prompt</code> <span class="badge">15–40% saved</span></h3>
+        <p class="desc">Converts verbose prose instructions into concise bullet points, preserving meaning while cutting tokens.</p>
+        <details>
+          <summary>Example</summary>
+          <div class="code-block"><pre><code>{
+  "tool": "optimize_system_prompt",
+  "arguments": {
+    "systemPrompt": "You are a helpful assistant. It is important to note that you should always be concise. Please be advised that you must not share private data..."
+  }
+}</code></pre></div>
+        </details>
+      </article>
+
+      <article class="tool-card" id="cache_context">
+        <h3><code>cache_context</code> <span class="badge">100% on repeats</span></h3>
+        <p class="desc">Stores reusable context (project rules, persona, boilerplate) once, so you don't have to re-send it every session. Persists at <code>~/.tokenwise/cache/&lt;namespace&gt;.json</code>.</p>
+        <details>
+          <summary>Example</summary>
+          <div class="code-block"><pre><code>{ "tool": "cache_context", "arguments": { "action": "set", "key": "project-rules", "value": "Always use TypeScript. No any types." } }
+{ "tool": "cache_context", "arguments": { "action": "get", "key": "project-rules" } }
+{ "tool": "cache_context", "arguments": { "action": "list", "key": "" } }
+{ "tool": "cache_context", "arguments": { "action": "delete", "key": "project-rules" } }</code></pre></div>
+        </details>
+      </article>
+
+      <article class="tool-card" id="plan_prompt_caching">
+        <h3><code>plan_prompt_caching</code> <span class="badge">50–65% in agent loops</span></h3>
+        <p class="desc">The headline feature. Places Anthropic <code>cache_control</code> breakpoints on your system prompt, tool definitions, and stable conversation prefixes, then returns them ready to send to the Anthropic API as-is.</p>
+        <details>
+          <summary>Example</summary>
+          <div class="code-block"><pre><code>{
+  "tool": "plan_prompt_caching",
+  "arguments": {
+    "system": "...your 1000+ token system prompt...",
+    "tools": [ { "name": "read_file", "description": "...", "input_schema": {} } ],
+    "messages": [
+      {"role": "user", "content": "...large repo context dump..."},
+      {"role": "assistant", "content": "Got it, reviewed the project."},
+      {"role": "user", "content": "Now add a new endpoint to the API."}
+    ],
+    "model": "claude-3-5-sonnet"
+  }
+}</code></pre></div>
+          <div class="code-block"><pre><code>{
+  "breakpointsUsed": 2,
+  "cachedTokens": 2114,
+  "totalTokens": 3102,
+  "estimatedSavingsPercent": 61,
+  "costPerTurnUSD": { "withoutCaching": 0.009306, "withCaching": 0.003598 },
+  "tokenCountExact": false,
+  "pricingExact": true,
+  "notes": [
+    "System prompt (1051 tokens) marked cacheable.",
+    "Tool definitions (978 tokens) are below the 1024-token cache minimum; left uncached.",
+    "Messages 0-1 (1063 tokens) marked as a cacheable stable prefix.",
+    "On a cache hit (a repeat call within the TTL), ~61% of input tokens cost only 10% of the normal price."
+  ]
+}</code></pre></div>
+        </details>
+      </article>
+
+      <article class="tool-card" id="get_stats">
+        <h3><code>get_stats</code></h3>
+        <p class="desc">Returns token-savings stats: this session, today, last 7 days, and all-time. The daily/all-time figures are persisted to <code>~/.tokenwise/usage/&lt;namespace&gt;.json</code> and power the <a href="#dashboard">dashboard</a>.</p>
+        <details>
+          <summary>Example</summary>
+          <div class="code-block"><pre><code>{ "tool": "get_stats", "arguments": {} }</code></pre></div>
+          <div class="code-block"><pre><code>{
+  "session": { "totalTokensSaved": 13, "callCount": 1 },
+  "today": { "date": "2026-06-15", "totalCalls": 1, "totalTokensSaved": 13, "tools": { "compress_prompt": { "calls": 1, "tokensSaved": 13 } } },
+  "last7Days": [ { "date": "2026-06-15", "totalCalls": 1, "totalTokensSaved": 13, "tools": { "...": "..." } } ],
+  "allTime": { "totalCalls": 1, "totalTokensSaved": 13 },
+  "namespace": "default",
+  "license": { "allowed": true, "licensed": false, "message": "Trial active: 14/14 day(s) remaining." },
+  "dashboard": "Run `npm run dashboard` to view daily usage charts."
+}</code></pre></div>
+        </details>
+      </article>
+
+      <article class="tool-card" id="activate_license">
+        <h3><code>activate_license</code></h3>
+        <p class="desc">Activates a license key, or with no arguments returns the current trial/license status.</p>
+        <details>
+          <summary>Example</summary>
+          <div class="code-block"><pre><code>{ "tool": "activate_license", "arguments": { "key": "TRMCP-...." } }</code></pre></div>
+          <div class="code-block"><pre><code>{ "success": true, "message": "Activated for alice@example.com (pro)." }</code></pre></div>
+        </details>
+      </article>
+
+      <article class="tool-card" id="set_proactive_mode">
+        <h3><code>set_proactive_mode</code></h3>
+        <p class="desc">Saves the user's one-time yes/no decision on whether Claude should use tokenwise tools automatically, without being asked. Called by Claude itself after asking you — see <a href="#proactive-mode">Proactive Mode</a> for the full setup/disable flow.</p>
+        <details>
+          <summary>Example</summary>
+          <div class="code-block"><pre><code>{ "tool": "set_proactive_mode", "arguments": { "enabled": true } }</code></pre></div>
+          <div class="code-block"><pre><code>{ "success": true, "enabled": true, "message": "Proactive mode enabled. tokenwise tools will be used automatically when helpful, without being asked, until told otherwise." }</code></pre></div>
+        </details>
+      </article>
+    </section>
+
+    <section id="proactive-mode">
+      <h2>Proactive Mode</h2>
+      <p class="lead">By default Claude only calls tokenwise tools when you ask. Opt in once to have it decide on its own when a tool would help.</p>
+
+      <h3>Turning it on</h3>
+      <div class="code-block"><pre><code>npx tokenwise-mcp setup</code></pre></div>
+      <p>
+        This merges a <code>SessionStart</code> hook into <code>~/.claude/settings.json</code>
+        — it won't touch unrelated settings, and running it again is a no-op if already
+        installed. Restart Claude Code, or open <code>/hooks</code> once, for it to take effect.
+      </p>
+      <p>
+        From the next session on, Claude will ask once whether it should use tokenwise tools
+        automatically (chunking large docs, caching repeated context, warning before pasting huge
+        text, etc.) instead of waiting to be asked. Your answer is saved to
+        <code>~/.tokenwise/proactive/</code> and is not asked again.
+      </p>
+
+      <h3>Turning it off</h3>
+      <ul class="steps">
+        <li><strong>Pause it, keep the hook installed</strong> — tell Claude "stop using
+          tokenwise automatically." It calls <code>set_proactive_mode</code> with
+          <code>enabled: false</code>; future sessions see the tools are available but won't use
+          them unless asked. Ask Claude to turn it back on any time to re-enable.</li>
+        <li><strong>Remove the hook entirely</strong> — run <code>npx tokenwise-mcp uninstall</code>.
+          This deletes the <code>SessionStart</code> hook entry (leaving every other setting
+          untouched) and restores the original explicit-only behavior. Restart Claude Code, or
+          open <code>/hooks</code> once, for it to take effect.</li>
+      </ul>
+      <div class="callout">
+        Your yes/no answer stays saved in <code>~/.tokenwise/proactive/</code> even after
+        <code>uninstall</code> — delete that file too if you want a future <code>setup</code> to
+        ask the question again from scratch. Skipping <code>setup</code> altogether keeps tokenwise
+        fully explicit-only, exactly as before this feature existed.
+      </div>
+    </section>
+
+    <section id="dashboard">
+      <h2>Dashboard</h2>
+      <p class="lead">A small local HTTP server with no external dependencies. View daily token-savings as a chart, with a per-tool breakdown for today.</p>
+
+      <div class="code-block"><pre><code>tokenwise-dashboard       # or: npx -y tokenwise-dashboard</code></pre></div>
+      <p>Then open <a href="http://localhost:4317">http://localhost:4317</a>.</p>
+
+      <ul class="steps">
+        <li><code>TOKENWISE_DASHBOARD_PORT</code> — change the port (default <code>4317</code>)</li>
+        <li><code>TOKENWISE_NAMESPACE</code> — view a different namespace's usage</li>
+      </ul>
+
+      <div class="callout">
+        The dashboard reads <code>~/.tokenwise/usage/&lt;namespace&gt;.json</code> directly — any MCP
+        session on the same machine that calls a savings tool
+        (<code>compress_prompt</code>, <code>summarize_context</code>, <code>chunk_document</code>,
+        <code>optimize_system_prompt</code>, <code>plan_prompt_caching</code>) will update the
+        same file. Refresh the page to see new totals — it doesn't auto-poll.
+      </div>
+    </section>
+
+    <section id="licensing">
+      <h2>Licensing</h2>
+      <div class="callout">
+        <strong>Currently in free beta</strong> — license enforcement is temporarily disabled
+        while feedback is gathered, so all tools and the dashboard are unlocked regardless of
+        trial status. The mechanics below remain active and will be enforced in a future release.
+      </div>
+
+      <p>
+        tokenwise-mcp is free to use for a <strong>14-day trial</strong> (all tools, starting
+        from first run — tracked in <code>~/.tokenwise/trial.json</code>). After the trial, all
+        tools (including the dashboard) require a valid license key.
+      </p>
+      <p>
+        Licenses are <strong>perpetual and fully offline</strong>: a signed token containing your
+        email and tier, verified locally against an embedded public key. No server, no
+        phone-home, no recurring fee.
+      </p>
+
+      <h3>Activating a key</h3>
+      <div class="code-block"><pre><code>{ "tool": "activate_license", "arguments": { "key": "TRMCP-...." } }</code></pre></div>
+      <p>
+        This verifies the key and saves it to <code>~/.tokenwise/license.key</code>.
+        Alternatively, set the <code>TOKENWISE_LICENSE_KEY</code> environment variable, or write
+        the key to that file directly. Run <code>activate_license</code> with no <code>key</code>
+        to check current trial/license status at any time.
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    <div>
+      <a href="https://github.com/RohanCarlo/-tokenwise-mcp">GitHub</a>
+      <a href="https://www.npmjs.com/package/tokenwise-mcp">npm</a>
+      <a href="https://github.com/RohanCarlo/-tokenwise-mcp/blob/main/LICENSE">License</a>
+    </div>
+    <p>tokenwise-mcp — reduce LLM token costs via compression, summarization, chunking, and prompt-cache planning.</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

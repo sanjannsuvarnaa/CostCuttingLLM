@@ -1,0 +1,47 @@
+{
+  "name": "tokenwise-mcp",
+  "version": "1.2.0",
+  "description": "Library + MCP server for reducing LLM token costs via compression, summarization, chunking, and Anthropic prompt-cache breakpoint planning",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "license": "SEE LICENSE IN LICENSE",
+  "author": "rohan2072001@gmail.com",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "llm",
+    "token-optimization",
+    "prompt-caching",
+    "ai-agent",
+    "cost-reduction"
+  ],
+  "bin": {
+    "tokenwise-mcp": "dist/server.js",
+    "tokenwise-dashboard": "dist/dashboard/server.js"
+  },
+  "files": [
+    "dist",
+    "TESTING.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "ts-node src/server.ts",
+    "dashboard": "node dist/dashboard/server.js",
+    "license:keygen": "node scripts/generate-keypair.mjs",
+    "license:generate": "node scripts/generate-license.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "tiktoken": "^1.0.17"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
